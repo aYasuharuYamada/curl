@@ -1181,7 +1181,7 @@ CURLcode Curl_setopt(struct SessionHandle *data, CURLoption option,
     if(arg < 0)
       break;
     data->set.maxcookies = arg;
-    if(data->cookies && (!data->share || data->share->cookies != data->cookies))
+    if(data->cookies)
       data->cookies->maxcookies = arg;
     break;
 

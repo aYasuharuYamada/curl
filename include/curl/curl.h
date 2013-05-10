@@ -2081,7 +2081,6 @@ typedef enum {
   CURLSHOPT_UNLOCKFUNC, /* pass in a 'curl_unlock_function' pointer */
   CURLSHOPT_USERDATA,   /* pass in a user data pointer used in the lock/unlock
                            callback functions */
-  CURLSHOPT_MAXCOOKIES, /* set number of maximam cookies, 0 means no limit */
   CURLSHOPT_LAST  /* never use */
 } CURLSHoption;
 

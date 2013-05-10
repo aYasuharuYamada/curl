@@ -165,17 +165,6 @@ curl_share_setopt(CURLSH *sh, CURLSHoption option, ...)
     share->clientdata = ptr;
     break;
 
-  case CURLSHOPT_MAXCOOKIES:
-    value = va_arg(param, long);
-#if !defined(CURL_DISABLE_HTTP) && !defined(CURL_DISABLE_COOKIES)
-    if(share->cookies && 0 <= value) {
-      share->cookies->maxcookies = value;
-    }
-#else   /* CURL_DISABLE_HTTP || CURL_DISABLE_COOKIES */
-    res = CURLSHE_NOT_BUILT_IN;
-#endif
-    break;
-
   default:
     res = CURLSHE_BAD_OPTION;
     break;
