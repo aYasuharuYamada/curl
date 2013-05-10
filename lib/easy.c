@@ -584,7 +584,8 @@ CURL *curl_easy_duphandle(CURL *incurl)
     outcurl->cookies = Curl_cookie_init(data,
                                         data->cookies->filename,
                                         outcurl->cookies,
-                                        data->set.cookiesession);
+                                        data->set.cookiesession,
+                                        data->set.maxcookies);
     if(!outcurl->cookies)
       goto fail;
   }

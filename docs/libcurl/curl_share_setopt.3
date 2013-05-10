@@ -77,6 +77,11 @@ the same as those for \fICURLSHOPT_SHARE\fP.
 .IP CURLSHOPT_USERDATA
 The \fIparameter\fP allows you to specify a pointer to data that will be passed
 to the lock_function and unlock_function each time it is called.
+.IP CURLSHOPT_MAXCOOKIES
+Pass a long. The set number will be the maximam number of cookies.
+If that many cookies received, this will delete the oldest access cookie.
+Set it to 0 for an infinite number of cookies (which is the default).
+(Added in 7.3x.x)
 .SH RETURN VALUE
 CURLSHE_OK (zero) means that the option was set properly, non-zero means an
 error occurred as \fI<curl/curl.h>\fP defines. See the \fIlibcurl-errors.3\fP

@@ -52,6 +52,7 @@ curl_share_setopt(CURLSH *sh, CURLSHoption option, ...)
   curl_unlock_function unlockfunc;
   void *ptr;
   CURLSHcode res = CURLSHE_OK;
+  long value;
 
   if(share->dirty)
     /* don't allow setting options while one or more handles are already
@@ -77,7 +78,7 @@ curl_share_setopt(CURLSH *sh, CURLSHoption option, ...)
     case CURL_LOCK_DATA_COOKIE:
 #if !defined(CURL_DISABLE_HTTP) && !defined(CURL_DISABLE_COOKIES)
       if(!share->cookies) {
-        share->cookies = Curl_cookie_init(NULL, NULL, NULL, TRUE );
+        share->cookies = Curl_cookie_init(NULL, NULL, NULL, TRUE, 0);
         if(!share->cookies)
           res = CURLSHE_NOMEM;
       }
@@ -162,6 +163,17 @@ curl_share_setopt(CURLSH *sh, CURLSHoption option, ...)
   case CURLSHOPT_USERDATA:
     ptr = va_arg(param, void *);
     share->clientdata = ptr;
+    break;
+
+  case CURLSHOPT_MAXCOOKIES:
+    value = va_arg(param, long);
+#if !defined(CURL_DISABLE_HTTP) && !defined(CURL_DISABLE_COOKIES)
+    if(share->cookies && 0 <= value) {
+      share->cookies->maxcookies = value;
+    }
+#else   /* CURL_DISABLE_HTTP || CURL_DISABLE_COOKIES */
+    res = CURLSHE_NOT_BUILT_IN;
+#endif
     break;
 
   default:

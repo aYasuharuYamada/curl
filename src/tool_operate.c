@@ -1328,6 +1328,10 @@ int operate(struct Configurable *config, int argc, argv_item_t argv[])
         retry_sleep_default = (config->retry_delay) ?
           config->retry_delay*1000L : RETRY_SLEEP_DEFAULT; /* ms */
 
+        /* new in 7.3x.0 */
+        if(config->max_cookies)
+          my_setopt(curl, CURLOPT_MAXCOOKIES, config->max_cookies);
+
         retry_numretries = config->req_retry;
         retry_sleep = retry_sleep_default; /* ms */
         retrystart = tvnow();

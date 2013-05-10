@@ -1109,7 +1109,8 @@ CURLcode Curl_setopt(struct SessionHandle *data, CURLoption option,
      * have been made.
      */
     data->cookies = Curl_cookie_init(data, NULL, data->cookies,
-                                     data->set.cookiesession);
+                                     data->set.cookiesession,
+                                     data->set.maxcookies);
     break;
 
   case CURLOPT_COOKIESESSION:
@@ -1155,7 +1156,8 @@ CURLcode Curl_setopt(struct SessionHandle *data, CURLoption option,
 
     if(!data->cookies)
       /* if cookie engine was not running, activate it */
-      data->cookies = Curl_cookie_init(data, NULL, NULL, TRUE);
+      data->cookies = Curl_cookie_init(data, NULL, NULL, TRUE,
+                                       data->set.maxcookies);
 
     argptr = strdup(argptr);
     if(!argptr) {
@@ -1173,6 +1175,16 @@ CURLcode Curl_setopt(struct SessionHandle *data, CURLoption option,
 
     free(argptr);
     break;
+
+  case CURLOPT_MAXCOOKIES:
+    arg = va_arg(param, long);
+    if(arg < 0)
+      break;
+    data->set.maxcookies = arg;
+    if(data->cookies && (!data->share || data->share->cookies != data->cookies))
+      data->cookies->maxcookies = arg;
+    break;
+
 #endif /* CURL_DISABLE_COOKIES */
 
   case CURLOPT_HTTPGET:

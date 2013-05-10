@@ -155,7 +155,8 @@ void Curl_cookie_loadfiles(struct SessionHandle *data)
       data->cookies = Curl_cookie_init(data,
                                        list->data,
                                        data->cookies,
-                                       data->set.cookiesession);
+                                       data->set.cookiesession,
+                                       data->set.maxcookies);
       list = list->next;
     }
     curl_slist_free_all(data->change.cookielist); /* clean up list */
@@ -177,6 +178,77 @@ static void strstore(char **str, const char *newstr)
   *str = strdup(newstr);
 }
 
+/*
+ * remove_expired() removes expired cookies.
+ */
+static void remove_expired(struct CookieInfo *cookies)
+{
+  struct Cookie *co, *nx, *pv;
+  long now = (long)time(NULL);
+
+  co = cookies->cookies;
+  pv = NULL;
+  while(co) {
+    nx = co->next;
+    if((co->expirestr || co->maxage) && co->expires < now) {
+      if(co == cookies->cookies) {
+        cookies->cookies = co->next;
+      }
+      else {
+        pv->next = co->next;
+      }
+      cookies->numcookies--;
+      freecookie(co);
+    }
+    else {
+      pv = co;
+    }
+    co = nx;
+  }
+}
+
+static int access_sort(const void *p1, const void *p2)
+{
+  struct Cookie *c1 = *(struct Cookie **)p1;
+  struct Cookie *c2 = *(struct Cookie **)p2;
+
+  if(c2->access_time > c1->access_time)
+    return -1;
+  else if (c2->access_time < c1->access_time)
+    return 1;
+  return 0;
+}
+
+static void access_time_sort(struct CookieInfo *info)
+{
+  struct Cookie *co = info->cookies;
+  struct Cookie **array;
+  size_t i;
+  size_t num;
+
+  if(0 == info->maxcookies || info->numcookies <= info->maxcookies)
+    return;
+
+  num = info->numcookies;
+
+  /* alloc an array and store all cookie pointers */
+  array = malloc(sizeof(struct Cookie *) * info->numcookies);
+  if(!array)
+    return;
+
+  for(i=0; co; co = co->next)
+    array[i++] = co;
+
+  /* now sort the cookie pointers in path length order */
+  qsort(array, info->numcookies, sizeof(struct Cookie *), access_sort);
+
+  info->cookies = array[0]; /* start here */
+  for(i=0; i<num-1; i++)
+    array[i]->next = array[i+1];
+  array[num-1]->next = NULL; /* terminate the list */
+
+  free(array); /* remove the temporary data again */
+}
 
 /****************************************************************************
  *
@@ -216,6 +288,8 @@ Curl_cookie_add(struct SessionHandle *data,
   co = calloc(1, sizeof(struct Cookie));
   if(!co)
     return NULL; /* bail out if we're this low on memory */
+
+  co->access_time = (curl_off_t)now;
 
   if(httpheader) {
     /* This line was read off a HTTP-header */
@@ -532,7 +606,7 @@ Curl_cookie_add(struct SessionHandle *data,
         break;
       case 1:
         /* This field got its explanation on the 23rd of May 2001 by
-           Andrés García:
+           Andrés Garcú}:
 
            flag: A TRUE/FALSE value indicating if all machines within a given
            domain can access the variable. This value is set automatically by
@@ -546,7 +620,7 @@ Curl_cookie_add(struct SessionHandle *data,
       case 2:
         /* It turns out, that sometimes the file format allows the path
            field to remain not filled in, we try to detect this and work
-           around it! Andrés García made us aware of this... */
+           around it! Andrés Garcú} made us aware of this... */
         if(strcmp("TRUE", ptr) && strcmp("FALSE", ptr)) {
           /* only if the path doesn't look like a boolean option! */
           co->path = strdup(ptr);
@@ -610,6 +684,9 @@ Curl_cookie_add(struct SessionHandle *data,
   /* now, we have parsed the incoming line, we must now check if this
      superceeds an already existing cookie, which it may if the previous have
      the same domain and path as this */
+
+  /* at first, remove expired cookies */
+  remove_expired(c);
 
   clist = c->cookies;
   replace_old = FALSE;
@@ -704,6 +781,22 @@ Curl_cookie_add(struct SessionHandle *data,
     else
       c->cookies = co;
     c->numcookies++; /* one more cookie in the jar */
+
+    access_time_sort(c);
+
+    /* then, if cookies are more than c->maxcookies, delete oldest. */
+    /* note: maxcookies is zero means infinity. */
+    while(c->maxcookies && c->maxcookies < c->numcookies) {
+      co = c->cookies;
+      if(co) {
+        c->cookies = co->next;
+        c->numcookies--;
+        freecookie(co);
+        if(c->numcookies == c->maxcookies) {
+          co = c->cookies;
+        }
+      }
+    }
   }
 
   return co;
@@ -722,7 +815,7 @@ Curl_cookie_add(struct SessionHandle *data,
 struct CookieInfo *Curl_cookie_init(struct SessionHandle *data,
                                     const char *file,
                                     struct CookieInfo *inc,
-                                    bool newsession)
+                                    bool newsession, int maxcookies)
 {
   struct CookieInfo *c;
   FILE *fp;
@@ -753,6 +846,8 @@ struct CookieInfo *Curl_cookie_init(struct SessionHandle *data,
     fp = file?fopen(file, "r"):NULL;
 
   c->newsession = newsession; /* new session? */
+
+  c->maxcookies = maxcookies;
 
   if(fp) {
     char *lineptr;
@@ -840,6 +935,9 @@ struct Cookie *Curl_cookie_getlist(struct CookieInfo *c,
   if(!c || !c->cookies)
     return NULL; /* no cookie struct or no cookies in the struct */
 
+  /* at first, remove expired cookies */
+  remove_expired(c);
+
   co = c->cookies;
 
   while(co) {
@@ -878,6 +976,9 @@ struct Cookie *Curl_cookie_getlist(struct CookieInfo *c,
             mainco = newco;
 
             matches++;
+
+            /* update access_time */
+            co->access_time = (curl_off_t)now;
           }
           else {
             fail:
@@ -1085,6 +1186,9 @@ static int cookie_output(struct CookieInfo *c, const char *dumphere)
        destination file */
     return 0;
 
+  /* at first, remove expired cookies */
+  remove_expired(c);
+
   if(strequal("-", dumphere)) {
     /* use stdout */
     out = stdout;
@@ -1135,6 +1239,9 @@ struct curl_slist *Curl_cookie_list(struct SessionHandle *data)
   if((data->cookies == NULL) ||
       (data->cookies->numcookies == 0))
     return NULL;
+
+  /* at first, remove expired cookies */
+  remove_expired(data->cookies);
 
   c = data->cookies->cookies;
 

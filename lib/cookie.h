@@ -42,6 +42,8 @@ struct Cookie {
   bool secure;       /* whether the 'secure' keyword was used */
   bool livecookie;   /* updated from a server, not a stored file */
   bool httponly;     /* true if the httponly directive is present */
+
+  curl_off_t access_time;  /* cookie access time */
 };
 
 struct CookieInfo {
@@ -52,6 +54,9 @@ struct CookieInfo {
   bool running;    /* state info, for cookie adding information */
   long numcookies; /* number of cookies in the "jar" */
   bool newsession; /* new session, discard session cookies on load */
+
+  long maxcookies; /* number of maximam cookies in the "jar".
+                      0 means no limit */
 };
 
 /* This is the maximum line length we accept for a cookie line. RFC 2109
@@ -88,14 +93,15 @@ void Curl_cookie_clearsess(struct CookieInfo *cookies);
 #if defined(CURL_DISABLE_HTTP) || defined(CURL_DISABLE_COOKIES)
 #define Curl_cookie_list(x) NULL
 #define Curl_cookie_loadfiles(x) Curl_nop_stmt
-#define Curl_cookie_init(x,y,z,w) NULL
+#define Curl_cookie_init(x,y,z,w,v) NULL
 #define Curl_cookie_cleanup(x) Curl_nop_stmt
 #define Curl_flush_cookies(x,y) Curl_nop_stmt
 #else
 void Curl_flush_cookies(struct SessionHandle *data, int cleanup);
 void Curl_cookie_cleanup(struct CookieInfo *);
 struct CookieInfo *Curl_cookie_init(struct SessionHandle *data,
-                                    const char *, struct CookieInfo *, bool);
+                                    const char *, struct CookieInfo *,
+                                    bool, int);
 struct curl_slist *Curl_cookie_list(struct SessionHandle *data);
 void Curl_cookie_loadfiles(struct SessionHandle *data);
 #endif

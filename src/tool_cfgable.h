@@ -205,6 +205,8 @@ struct Configurable {
   bool use_metalink;        /* process given URLs as metalink XML file */
   metalinkfile *metalinkfile_list; /* point to the first node */
   metalinkfile *metalinkfile_last; /* point to the last/current node */
+
+  long max_cookies;          /* number of maximam cookies */
 }; /* struct Configurable */
 
 void free_config_fields(struct Configurable *config);

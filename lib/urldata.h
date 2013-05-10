@@ -1585,6 +1585,8 @@ struct UserDefined {
   long tcp_keepintvl;    /* seconds between TCP keepalive probes */
 
   size_t maxconnects;  /* Max idle connections in the connection cache */
+
+  long maxcookies;  /* number of maximam cookies */ 
 };
 
 struct Names {

@@ -174,6 +174,7 @@ static const struct LongShort aliases[]= {
   {"$I", "post303",                  FALSE},
   {"$J", "metalink",                 FALSE},
   {"$K", "sasl-ir",                  FALSE},
+  {"$L", "max-cookies",              TRUE},
   {"0",  "http1.0",                  FALSE},
   {"1",  "tlsv1",                    FALSE},
   {"2",  "sslv2",                    FALSE},
@@ -960,6 +961,11 @@ ParameterError getparameter(char *flag,    /* f or -long-flag */
         }
       case 'K': /* --sasl-ir */
         config->sasl_ir = TRUE;
+        break;
+      case 'L': /* --max-cookies */
+        err = str2num(&config->max_cookies, nextarg);
+        if(err)
+          return err;
         break;
       }
       break;

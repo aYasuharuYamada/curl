@@ -1510,6 +1510,11 @@ Passing the special string \&"SESS" will only erase all session cookies known
 by cURL. (Added in 7.15.4) Passing the special string \&"FLUSH" will write
 all cookies known by cURL to the file specified by \fICURLOPT_COOKIEJAR\fP.
 (Added in 7.17.1)
+.IP CURLOPT_MAXCOOKIES
+Pass a long. The set number will be the maximam number of cookies.
+If that many cookies received, this will delete the oldest access cookie.
+Set it to 0 for an infinite number of cookies (which is the default).
+(Added in 7.3x.x)
 .IP CURLOPT_HTTPGET
 Pass a long. If the long is 1, this forces the HTTP request to get back
 to GET. Usable if a POST, HEAD, PUT, or a custom request has been used

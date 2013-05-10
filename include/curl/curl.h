@@ -1533,6 +1533,9 @@ typedef enum {
   /* Enable/disable SASL initial response */
   CINIT(SASL_IR, LONG, 218),
 
+  /* number of maximam cookies, 0 means no limit */
+  CINIT(MAXCOOKIES, LONG, 219),
+
   CURLOPT_LASTENTRY /* the last unused */
 } CURLoption;
 
@@ -2078,6 +2081,7 @@ typedef enum {
   CURLSHOPT_UNLOCKFUNC, /* pass in a 'curl_unlock_function' pointer */
   CURLSHOPT_USERDATA,   /* pass in a user data pointer used in the lock/unlock
                            callback functions */
+  CURLSHOPT_MAXCOOKIES, /* set number of maximam cookies, 0 means no limit */
   CURLSHOPT_LAST  /* never use */
 } CURLSHoption;
 
