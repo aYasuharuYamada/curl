@@ -156,7 +156,9 @@ void Curl_cookie_loadfiles(struct SessionHandle *data)
                                        list->data,
                                        data->cookies,
                                        data->set.cookiesession,
-                                       data->set.maxcookies);
+                                       (data->cookies) ?
+                                        data->cookies->maxcookies :
+                                        data->set.maxcookies);
       list = list->next;
     }
     curl_slist_free_all(data->change.cookielist); /* clean up list */
