@@ -291,7 +291,7 @@ Curl_cookie_add(struct SessionHandle *data,
   if(!co)
     return NULL; /* bail out if we're this low on memory */
 
-  co->access_time = (curl_off_t)now;
+  co->access_time = now;
 
   if(httpheader) {
     /* This line was read off a HTTP-header */
@@ -608,7 +608,7 @@ Curl_cookie_add(struct SessionHandle *data,
         break;
       case 1:
         /* This field got its explanation on the 23rd of May 2001 by
-           Andrés Garcú}:
+           Andrés García:
 
            flag: A TRUE/FALSE value indicating if all machines within a given
            domain can access the variable. This value is set automatically by
@@ -622,7 +622,7 @@ Curl_cookie_add(struct SessionHandle *data,
       case 2:
         /* It turns out, that sometimes the file format allows the path
            field to remain not filled in, we try to detect this and work
-           around it! Andrés Garcú} made us aware of this... */
+           around it! Andrés García made us aware of this... */
         if(strcmp("TRUE", ptr) && strcmp("FALSE", ptr)) {
           /* only if the path doesn't look like a boolean option! */
           co->path = strdup(ptr);
@@ -980,7 +980,7 @@ struct Cookie *Curl_cookie_getlist(struct CookieInfo *c,
             matches++;
 
             /* update access_time */
-            co->access_time = (curl_off_t)now;
+            co->access_time = now;
           }
           else {
             fail:

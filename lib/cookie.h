@@ -43,7 +43,7 @@ struct Cookie {
   bool livecookie;   /* updated from a server, not a stored file */
   bool httponly;     /* true if the httponly directive is present */
 
-  curl_off_t access_time;  /* cookie access time */
+  time_t access_time;  /* cookie access time */
 };
 
 struct CookieInfo {
