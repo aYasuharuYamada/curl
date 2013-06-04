@@ -143,106 +143,32 @@ static bool tailmatch(const char *cooke_domain, const char *hostname)
   return FALSE;
 }
 
-/*
- * matching cookie path and url path
- * RFC6265 5.1.4 Paths and Path-Match
- */
-static bool pathmatch(const char* cookie_path, const char* request_uri)
+static bool pathmatch(const char* cookie_path, const char* url_path)
 {
-  size_t cookie_path_len;
-  size_t uri_path_len;
-  char* uri_path = NULL;
-  char* pos;
-  bool ret = FALSE;
+  size_t cookie_path_len = strlen(cookie_path);
+  size_t url_path_len = strlen(url_path);
 
-  /* cookie_path must not have last '/' separator. ex: /sample */
-  cookie_path_len = strlen(cookie_path);
-  if(1 == cookie_path_len) {
-      /* cookie_path must be '/' */
-      return TRUE;
-  }
-
-  uri_path = strdup(request_uri);
-  if(!uri_path)
+  if(url_path_len < cookie_path_len)
     return FALSE;
-  pos = strchr(uri_path, '?');
-  if(pos)
-    *pos = 0x0;
-  pos = strchr(uri_path, '#');
-  if(pos)
-    *pos = 0x0;
-  if(0 == strlen(uri_path) || uri_path[0] != '/') {
-    free(uri_path);
-    uri_path = strdup("/");
-    if(!uri_path)
-      return FALSE;
-  }
-
-  /* here, RFC6265 5.1.4 says
-     4. Output the characters of the uri-path from the first character up
-        to, but not including, the right-most %x2F ("/").
-     but URL path /hoge?fuga=xxx means /hoge/index.cgi?fuga=xxx in some site without redirect.
-     Ignore this algorithm because /hoge is uri path for this case(uri path is not /).
-   */
-
-  uri_path_len = strlen(uri_path);
-
-  if(uri_path_len < cookie_path_len) {
-    ret = FALSE;
-    goto pathmatched;
-  }
 
   /* not using checkprefix() because matching should be case-sensitive */
-  if(strncmp(cookie_path, uri_path, cookie_path_len)) {
-    ret = FALSE;
-    goto pathmatched;
-  }
+  if(strncmp(cookie_path, url_path, cookie_path_len))
+    return FALSE;
 
-  /* The cookie-path and the uri-path are identical. */
-  if(cookie_path_len == uri_path_len) {
-    ret = TRUE;
-    goto pathmatched;
-  }
+  /* it is true if cookie_path and url_path are the same */
+  if(cookie_path_len == url_path_len)
+    return TRUE;
 
   /* here, cookie_path_len < url_path_len */
-  if(uri_path[cookie_path_len] == '/') {
-    ret = TRUE;
-    goto pathmatched;
+
+  /* it is false if cookie path is /example and url path is /examples */
+  if(cookie_path[cookie_path_len - 1] != '/') {
+    if(url_path[cookie_path_len] != '/') {
+      return FALSE;
+    }
   }
-
-  ret = FALSE;
-
-pathmatched:
-  free(uri_path);
-  return ret;
-}
-
-/*
- * cookie path normalize
- */
-static void normalize_cookie_path(struct Cookie *co)
-{
-
-  /* some stupid site sends path attribute with '"'. */
-  if(co->path[0] == '\"') {
-    memmove((void *)co->path, (const void *)(co->path + 1), strlen(co->path));
-  }
-  if(co->path[strlen(co->path) - 1] == '\"') {
-    co->path[strlen(co->path) - 1] = 0x0;
-  }
-
-  /* RFC6265 5.2.4 The Path Attribute */
-  if(co->path[0] != '/') {
-    /* Let cookie-path be the default-path. */
-    free(co->path);
-    co->path = strdup("/");
-    return;
-  }
-
-  /* convert /hoge/ to /hoge */
-  if(1 < strlen(co->path) && co->path[strlen(co->path) - 1] == '/') {
-    co->path[strlen(co->path) - 1] = 0x0;
-  }
+  /* matching! */
+  return TRUE;
 }
 
 /*
@@ -393,7 +319,6 @@ Curl_cookie_add(struct SessionHandle *data,
             badcookie = TRUE; /* out of memory bad */
             break;
           }
-          normalize_cookie_path(co);
         }
         else if(Curl_raw_equal("domain", name)) {
           /* Now, we make sure that our host is within the given domain,
@@ -529,7 +454,6 @@ Curl_cookie_add(struct SessionHandle *data,
         if(co->path) {
           memcpy(co->path, path, pathlen);
           co->path[pathlen]=0; /* zero terminate */
-          normalize_cookie_path(co);
         }
         else
           badcookie = TRUE;
@@ -595,7 +519,7 @@ Curl_cookie_add(struct SessionHandle *data,
         break;
       case 1:
         /* This field got its explanation on the 23rd of May 2001 by
-           Andrés Garcú}:
+           Andrés García:
 
            flag: A TRUE/FALSE value indicating if all machines within a given
            domain can access the variable. This value is set automatically by
@@ -609,14 +533,12 @@ Curl_cookie_add(struct SessionHandle *data,
       case 2:
         /* It turns out, that sometimes the file format allows the path
            field to remain not filled in, we try to detect this and work
-           around it! Andrés Garcú} made us aware of this... */
+           around it! Andrés García made us aware of this... */
         if(strcmp("TRUE", ptr) && strcmp("FALSE", ptr)) {
           /* only if the path doesn't look like a boolean option! */
           co->path = strdup(ptr);
           if(!co->path)
             badcookie = TRUE;
-          else
-            normalize_cookie_path(co);
           break;
         }
         /* this doesn't look like a path, make one up! */
