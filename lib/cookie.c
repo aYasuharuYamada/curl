@@ -106,6 +106,8 @@ static void freecookie(struct Cookie *co)
     free(co->domain);
   if(co->path)
     free(co->path);
+  if(co->spath)
+    free(co->spath);
   if(co->name)
     free(co->name);
   if(co->value)
@@ -181,8 +183,10 @@ static bool pathmatch(const char* cookie_path, const char* request_uri)
   /* here, RFC6265 5.1.4 says
      4. Output the characters of the uri-path from the first character up
         to, but not including, the right-most %x2F ("/").
-     but URL path /hoge?fuga=xxx means /hoge/index.cgi?fuga=xxx in some site without redirect.
-     Ignore this algorithm because /hoge is uri path for this case(uri path is not /).
+     but URL path /hoge?fuga=xxx means /hoge/index.cgi?fuga=xxx in some site
+     without redirect.
+     Ignore this algorithm because /hoge is uri path for this case
+     (uri path is not /).
    */
 
   uri_path_len = strlen(uri_path);
@@ -218,31 +222,38 @@ pathmatched:
 }
 
 /*
- * cookie path normalize
+ * cookie path sanitize
  */
-static void normalize_cookie_path(struct Cookie *co)
+static char *sanitize_cookie_path(const char *cookie_path)
 {
+  int len;
+  char *new_path = strdup(cookie_path);
+  if(!new_path)
+    return NULL;
 
   /* some stupid site sends path attribute with '"'. */
-  if(co->path[0] == '\"') {
-    memmove((void *)co->path, (const void *)(co->path + 1), strlen(co->path));
+  if(new_path[0] == '\"') {
+    memmove((void *)new_path, (const void *)(new_path + 1), strlen(new_path));
   }
-  if(co->path[strlen(co->path) - 1] == '\"') {
-    co->path[strlen(co->path) - 1] = 0x0;
+  if(new_path[strlen(new_path) - 1] == '\"') {
+    new_path[strlen(new_path) - 1] = 0x0;
   }
 
   /* RFC6265 5.2.4 The Path Attribute */
-  if(co->path[0] != '/') {
+  if(new_path[0] != '/') {
     /* Let cookie-path be the default-path. */
-    free(co->path);
-    co->path = strdup("/");
-    return;
+    free(new_path);
+    new_path = strdup("/");
+    return new_path;
   }
 
   /* convert /hoge/ to /hoge */
-  if(1 < strlen(co->path) && co->path[strlen(co->path) - 1] == '/') {
-    co->path[strlen(co->path) - 1] = 0x0;
+  len = strlen(new_path);
+  if(1 < len && new_path[len - 1] == '/') {
+    new_path[len - 1] = 0x0;
   }
+
+  return new_path;
 }
 
 /*
@@ -393,7 +404,11 @@ Curl_cookie_add(struct SessionHandle *data,
             badcookie = TRUE; /* out of memory bad */
             break;
           }
-          normalize_cookie_path(co);
+          co->spath = sanitize_cookie_path(co->path);
+          if(!co->spath) {
+            badcookie = TRUE; /* out of memory bad */
+            break;
+          }
         }
         else if(Curl_raw_equal("domain", name)) {
           /* Now, we make sure that our host is within the given domain,
@@ -529,7 +544,9 @@ Curl_cookie_add(struct SessionHandle *data,
         if(co->path) {
           memcpy(co->path, path, pathlen);
           co->path[pathlen]=0; /* zero terminate */
-          normalize_cookie_path(co);
+          co->spath = sanitize_cookie_path(co->path);
+          if(!co->spath)
+            badcookie = TRUE; /* out of memory bad */
         }
         else
           badcookie = TRUE;
@@ -615,13 +632,20 @@ Curl_cookie_add(struct SessionHandle *data,
           co->path = strdup(ptr);
           if(!co->path)
             badcookie = TRUE;
-          else
-            normalize_cookie_path(co);
+          else {
+            co->spath = sanitize_cookie_path(co->path);
+            if(!co->spath) {
+              badcookie = TRUE; /* out of memory bad */
+            }
+          }
           break;
         }
         /* this doesn't look like a path, make one up! */
         co->path = strdup("/");
         if(!co->path)
+          badcookie = TRUE;
+        co->spath = strdup("/");
+        if(!co->spath)
           badcookie = TRUE;
         fields++; /* add a field and fall down to secure */
         /* FALLTHROUGH */
@@ -693,14 +717,14 @@ Curl_cookie_add(struct SessionHandle *data,
       if(replace_old) {
         /* the domains were identical */
 
-        if(clist->path && co->path) {
-          if(Curl_raw_equal(clist->path, co->path)) {
+        if(clist->spath && co->spath) {
+          if(Curl_raw_equal(clist->spath, co->spath)) {
             replace_old = TRUE;
           }
           else
             replace_old = FALSE;
         }
-        else if(!clist->path && !co->path)
+        else if(!clist->spath && !co->spath)
           replace_old = TRUE;
         else
           replace_old = FALSE;
@@ -729,6 +753,8 @@ Curl_cookie_add(struct SessionHandle *data,
           free(clist->domain);
         if(clist->path)
           free(clist->path);
+        if(clist->spath)
+          free(clist->spath);
         if(clist->expirestr)
           free(clist->expirestr);
 
@@ -923,7 +949,7 @@ struct Cookie *Curl_cookie_getlist(struct CookieInfo *c,
 
         /* now check the left part of the path with the cookies path
            requirement */
-        if(!co->path || pathmatch(co->path, path) ) {
+        if(!co->spath || pathmatch(co->spath, path) ) {
 
           /* and now, we know this is a match and we should create an
              entry for the return-linked-list */
